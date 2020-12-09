@@ -344,6 +344,20 @@ of a book, but you are not limited only by the book properties we described.
 Create your own book type of your dreams!
 -}
 
+data Book = Book {
+  bookEdition :: String,
+  bookFormat :: BookFormat,
+  isbn :: String,
+  numberOfPages :: Int,
+  author :: String
+}
+
+data BookFormat = AudioBook 
+                  | EBook 
+                  | GraphicNovel 
+                  | HardCover 
+                  | PaperBack
+
 {- |
 =⚔️= Task 2
 
@@ -373,6 +387,25 @@ after the fight. The battle has the following possible outcomes:
    doesn't earn any money and keeps what they had before.
 
 -}
+data Knight = Knight {
+  knightHealth :: Int,
+  knightAttack :: Int,
+  knightGold :: Int
+}
+
+data Monster = Monster {
+  monsterHealth :: Int,
+  monsterAttack :: Int,
+  monsterGold :: Int
+}
+
+fight :: Monster -> Knight -> Int
+fight monster knight 
+      | monsterHealth monster <= knightAttack knight = monsterGold monster + knightGold knight
+      | knightHealth knight <= monsterAttack monster = -1
+      | otherwise = knightGold knight
+
+      
 
 {- |
 =🛡= Sum types
@@ -459,7 +492,12 @@ and provide more flexibility when working with data types.
 Create a simple enumeration for the meal types (e.g. breakfast). The one who
 comes up with the most number of names wins the challenge. Use your creativity!
 -}
-
+data Meal = Breakfast 
+            | Lunch 
+            | Dinner 
+            | Supper 
+            | Festin
+            | CasseCroute
 {- |
 =⚔️= Task 4
 
@@ -480,6 +518,42 @@ After defining the city, implement the following functions:
    and at least 10 living people inside
 -}
 
+data City = City {
+  castle :: Castle,
+  monument :: Monument,
+  houses :: Houses
+}
+
+data Castle = NoCastle 
+              | JustCastle String 
+              | CastleWithWall String
+
+data Monument = Library | Church
+
+type Houses  = [HouseHold]
+
+data HouseHold = OnePersonHouseHold 
+                |TwoPeopleHouseHold
+                |ThreePeopleHouseHold
+                |FourPeopleHouseHold
+
+buildWalls :: City -> City
+buildWalls city = case castle city of
+                    JustCastle name -> if length (houses city) >= 10 
+                                         then City (CastleWithWall name) (monument city) (houses city)
+                                         else city
+                    _ -> city
+                    
+buildHouse :: HouseHold -> City -> City
+buildHouse house city = City (castle city) (monument city) (house : houses city)
+
+buildCastle :: String -> City -> City
+buildCastle name city = case castle city of
+                          CastleWithWall _ -> City (CastleWithWall name) cityMonument cityHouses
+                          _ -> City (JustCastle name)  cityMonument cityHouses
+                        where
+                          cityMonument = monument city
+                          cityHouses = houses city
 {-
 =🛡= Newtypes
 
@@ -560,22 +634,42 @@ introducing extra newtypes.
 🕯 HINT: if you complete this task properly, you don't need to change the
     implementation of the "hitPlayer" function at all!
 -}
+newtype Health = Health {
+  unHealth :: Int
+}
+
+newtype Armor = Armor {
+  unArmor :: Int
+}
+
+newtype Attack = Attack {
+  unAttack :: Int
+}
+
+newtype Dexterity = Dexterity {
+  unDexterity :: Int
+}
+
+newtype Strength = Strength {
+  unStrength :: Int
+}
+
 data Player = Player
-    { playerHealth    :: Int
-    , playerArmor     :: Int
-    , playerAttack    :: Int
-    , playerDexterity :: Int
-    , playerStrength  :: Int
+    { playerHealth    :: Health
+    , playerArmor     :: Armor
+    , playerAttack    :: Attack
+    , playerDexterity :: Dexterity
+    , playerStrength  :: Strength
     }
 
-calculatePlayerDamage :: Int -> Int -> Int
-calculatePlayerDamage attack strength = attack + strength
+calculatePlayerDamage :: Attack -> Strength -> Int
+calculatePlayerDamage attack strength = unAttack attack + unStrength strength
 
-calculatePlayerDefense :: Int -> Int -> Int
-calculatePlayerDefense armor dexterity = armor * dexterity
+calculatePlayerDefense :: Armor -> Dexterity -> Int
+calculatePlayerDefense armor dexterity = unArmor armor * unDexterity dexterity
 
-calculatePlayerHit :: Int -> Int -> Int -> Int
-calculatePlayerHit damage defense health = health + defense - damage
+calculatePlayerHit :: Int -> Int -> Health -> Health
+calculatePlayerHit damage defense health = Health (unHealth health + defense - damage)
 
 -- The second player hits first player and the new first player is returned
 hitPlayer :: Player -> Player -> Player
@@ -752,7 +846,24 @@ parametrise data types in places where values can be of any general type.
 🕯 HINT: 'Maybe' that some standard types we mentioned above are useful for
   maybe-treasure ;)
 -}
+data DragonLiar t p = DragonLiar Dragon (Maybe (TreasureChest t)) (MagicPower p)
 
+data DragonLiar' t p = DragonLiar' {
+    dragon :: Dragon,
+    treasureChest :: Maybe (TreasureChest t),
+    magicPower :: MagicPower p
+}
+
+data Dragon = RedDragon | BlackDragon
+
+newtype MagicPower a = MagicPower {
+  power :: a
+}
+
+data TreasureChest a = TreasureChest
+    { treasureChestGold :: Int
+    , treasureChestLoot :: a
+    }
 {-
 =🛡= Typeclasses
 
@@ -907,8 +1018,19 @@ Implement instances of "Append" for the following types:
   ✧ *(Challenge): "Maybe" where append is appending of values inside "Just" constructors
 
 -}
+
+newtype Gold = Gold Int deriving Show
+
 class Append a where
     append :: a -> a -> a
+
+instance Append Gold where
+  append :: Gold -> Gold -> Gold
+  append (Gold g1) (Gold g2) = Gold (g1 + g2)
+
+instance Append [a] where
+  append :: [a] -> [a] -> [a]
+  append l1 l2 = l1 ++ l2
 
 
 {-
@@ -970,6 +1092,28 @@ implement the following functions:
 
 🕯 HINT: to implement this task, derive some standard typeclasses
 -}
+data DaysOfWeek = Monday 
+                  | Thuesday 
+                  | Wednesday 
+                  | Thursday 
+                  | Friday 
+                  | Saturday 
+                  | Sunday deriving (Show, Eq, Enum)
+
+isWeekend :: DaysOfWeek -> Bool
+isWeekend Saturday = True
+isWeekend Sunday = True
+isWeekend _ = False
+
+nextDay :: DaysOfWeek -> DaysOfWeek
+nextDay d
+    | d == Sunday = Monday
+    | otherwise = succ d
+
+daysToParty :: DaysOfWeek -> Int
+daysToParty d = length datyToFriday - 1
+                  where
+                    datyToFriday = enumFromTo d Friday
 
 {-
 =💣= Task 9*
@@ -1006,6 +1150,59 @@ Implement data types and typeclasses, describing such a battle between two
 contestants, and write a function that decides the outcome of a fight!
 -}
 
+class Actions a where
+  actions :: a -> [Action']
+
+instance Actions (Fighter h d) where
+  actions (Knight' _ _ kActions) = kActions
+  actions (Monster' _ mActions) = mActions
+
+class (Actions a) => Battle a where
+  battle :: a -> a -> [(Action', Action')]
+
+instance Battle (Fighter h d) where
+  battle fighter1 fighter2 = zipDef (Attack' 0) (actions fighter1) (actions fighter2)
+    where
+      zipDef b (x : xs) (y : ys) = (x, y) : zipDef b xs ys
+      zipDef b [] ys = zip (repeat b) ys
+      zipDef b xs [] = zip xs (repeat b)
+
+class Health' a where
+  health :: a -> Int
+
+instance Health' (Fighter a b) where
+  health (Monster' h _) = h
+  health (Knight' h _ _) = h
+
+data Fighter h d
+  = Knight' Int Int [Action']
+  | Monster' Int [Action']
+
+data Action'
+  = Attack' Int
+  | Drink'
+  | CastSpell
+  | RunAway
+  deriving (Show)
+
+k1 = Knight' 1 3 [Attack' 3, Drink', Attack' 1, Attack' 1]
+
+m1 = Monster' 2 [Attack' 2, RunAway]
+
+fight' :: Fighter h d -> Fighter h d -> IO ()
+fight' fighter1 fighter2 =
+  case uncurry compare result of
+    GT -> putStrLn "Fighter one wins"
+    LT -> putStrLn "Fighter two wins"
+    _ -> putStrLn "Draw"
+  where
+    result = foldr fightOutcome (health fighter1, health fighter2) (battle fighter1 fighter2)
+
+fightOutcome :: (Action', Action') -> (Int, Int) -> (Int, Int)
+fightOutcome (Attack' a1, Attack' a2) (h1, h2) = (h1 - a2, h2 - a1)
+fightOutcome (Attack' a1, _) (h1, h2) = (h1, h2 - a1)
+fightOutcome (_, Attack' a2) (h1, h2) = (h1 - a2, h2)
+fightOutcome (_, _) (h1, h2) = (h1, h2)
 
 {-
 You did it! Now it is time to the open pull request with your changes
