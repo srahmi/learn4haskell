@@ -114,23 +114,23 @@ As always, try to guess the output first! And don't forget to insert
 the output in here:
 
 >>> :k Char
-
+*
 >>> :k Bool
-
+*
 >>> :k [Int]
-
+*
 >>> :k []
-
+* -> *
 >>> :k (->)
-
+* -> * -> *
 >>> :k Either
-
+* -> *
 >>> data Trinity a b c = MkTrinity a b c
 >>> :k Trinity
-
+* -> * -> *
 >>> data IntBox f = MkIntBox (f Int)
 >>> :k IntBox
-
+* -> *
 -}
 
 {- |
@@ -293,7 +293,8 @@ values and apply them to the type level?
 -}
 instance Functor (Secret e) where
     fmap :: (a -> b) -> Secret e a -> Secret e b
-    fmap = error "fmap for Box: not implemented!"
+    fmap  _ (Trap e) = Trap e
+    fmap  f (Reward a) = Reward (f a)
 
 {- |
 =⚔️= Task 3
@@ -307,6 +308,10 @@ data List a
     = Empty
     | Cons a (List a)
 
+instance Functor List where
+    fmap :: (a -> b) -> List a -> List  b
+    fmap  _ Empty = Empty
+    fmap  f (Cons a rest) = Cons (f a) (fmap f rest)
 {- |
 =🛡= Applicative
 
@@ -471,11 +476,12 @@ Applicatives can be found in many applications:
 Implement the Applicative instance for our 'Secret' data type from before.
 -}
 instance Applicative (Secret e) where
-    pure :: a -> Secret e a
-    pure = error "pure Secret: Not implemented!"
+  pure :: a -> Secret e a
+  pure = Reward
 
-    (<*>) :: Secret e (a -> b) -> Secret e a -> Secret e b
-    (<*>) = error "(<*>) Secret: Not implemented!"
+  (<*>) :: Secret e (a -> b) -> Secret e a -> Secret e b
+  (Trap e) <*> _ = Trap e
+  Reward f <*> x = fmap f x
 
 {- |
 =⚔️= Task 5
@@ -488,10 +494,29 @@ Implement the 'Applicative' instance for our 'List' type.
   may also need to implement a few useful helper functions for our List
   type.
 -}
+instance Applicative List where
+   pure :: a -> List a
+   pure a = Cons a Empty
+
+   (<*>) :: List (a -> b) -> List a -> List b
+   fs <*> xs =  flatten (fmap (\x -> fmap (\f -> f x) fs) xs)
+   _ <*> _ = Empty
+
+flatten :: List (List b) -> List b
+flatten (Cons xs Empty) = xs
+flatten (Cons Empty (Cons xs xxs)) = xs +.+ flatten xxs
+flatten (Cons xs@(Cons _ _) yys@(Cons _ _)) = xs +.+ flatten yys
+flatten _ = Empty
+
+(+.+) :: List a -> List a -> List a
+Empty +.+ xs@(Cons _ _) = xs
+xs@(Cons _ _) +.+ Empty = xs
+(Cons x Empty) +.+ xs@(Cons _ _) = Cons x xs
+(Cons x xs) +.+ (Cons y ys) = Cons x (xs +.+ Cons y ys)
+_ +.+ _ = Empty
 
 
-{- |
-=🛡= Monad
+{- =🛡= Monad
 
 Now, the Monad Dragon. We've come that far not to give up. If we
 managed to fight 'Functor' and 'Applicative', then sure, we can beat
@@ -599,8 +624,9 @@ concepts in the end.
 Implement the 'Monad' instance for our 'Secret' type.
 -}
 instance Monad (Secret e) where
-    (>>=) :: Secret e a -> (a -> Secret e b) -> Secret e b
-    (>>=) = error "bind Secret: Not implemented!"
+  (>>=) :: Secret e a -> (a -> Secret e b) -> Secret e b
+  Trap a >>= _ = Trap a
+  Reward a >>= f = f a
 
 {- |
 =⚔️= Task 7
@@ -610,6 +636,10 @@ Implement the 'Monad' instance for our lists.
 🕯 HINT: You probably will need to implement a helper function (or
   maybe a few) to flatten lists of lists to a single list.
 -}
+
+instance Monad List where
+  (>>=) :: List a -> (a -> List b) -> List b
+  xs >>= f =  flatten (fmap f xs)
 
 
 {- |
@@ -629,7 +659,12 @@ Can you implement a monad version of AND, polymorphic over any monad?
 🕯 HINT: Use "(>>=)", "pure" and anonymous function
 -}
 andM :: (Monad m) => m Bool -> m Bool -> m Bool
-andM = error "andM: Not implemented!"
+andM m1 m2 = do
+  x <- m1
+  y <- m2
+  return (x && y)
+
+
 
 {- |
 =🐉= Task 9*: Final Dungeon Boss
@@ -672,7 +707,24 @@ Specifically,
    subtree of a tree
  ❃ Implement the function to convert Tree to list
 -}
+data Tree a
+  = Leaf
+  | Node (Tree a) a (Tree a)
+  deriving (Show, Eq)
 
+instance Functor Tree where
+  fmap f (Node left a right) = Node (fmap f left) (f a) (fmap f right)
+  fmap _ _ = Leaf
+
+reverseTree :: Tree a -> Tree a
+reverseTree (Node left a right) = Node (reverseTree right) a (reverseTree left)
+reverseTree _ = Leaf
+
+treeToList :: Tree a -> [a]
+treeToList (Node left a right) = [a] ++ treeToList left ++ treeToList right
+treeToList _ = []
+
+tree = Node (Node Leaf "left head1" Leaf) "head1" (Node (Node Leaf "left head2" Leaf) "head2" (Leaf)) 
 
 {-
 You did it! Now it is time to the open pull request with your changes
